@@ -1,16 +1,19 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
-	"time"
+
+	log "log/slog"
 
 	"github.com/abyanmajid/codemore.io/services/broker/proto/course"
 	"github.com/abyanmajid/codemore.io/services/broker/utils"
 	"github.com/go-chi/chi/v5"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 type CourseService struct {
@@ -25,9 +28,10 @@ type CourseServiceClient struct {
 }
 
 type Course struct {
+	Id          string   `json:"id"`
 	Title       string   `json:"title"`
 	Description string   `json:"description"`
-	Creator     string   `json:"creator"`
+	CreatorId   string   `json:"creator_id"`
 	Likes       int32    `json:"likes"`
 	Students    []string `json:"students"`
 	Topics      []string `json:"topics"`
@@ -37,85 +41,93 @@ type Course struct {
 }
 
 type Module struct {
-	Id    int32  `json:"id"`
+	Id    string `json:"id"`
 	Title string `json:"title"`
 	Tasks []Task `json:"tasks"`
 }
 
 type Task struct {
-	Id   int32  `json:"id"`
+	Id   string `json:"id"`
 	Task string `json:"task"`
 	Type string `json:"type"`
 	Xp   int32  `json:"xp"`
 }
 
-func (api *CourseService) getCourseServiceClient() (*CourseServiceClient, error) {
-
-	conn, err := grpc.NewClient(api.Endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, err
-	}
-
-	client := course.NewCourseServiceClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
-	return &CourseServiceClient{
-		Client: client,
-		Conn:   conn,
-		Ctx:    ctx,
-		Cancel: cancel,
-	}, nil
-}
-
 func (api *CourseService) HandleCreateCourse(w http.ResponseWriter, r *http.Request) {
+	log.Debug("Handling CreateCourse request....")
 
 	var requestPayload Course
 	err := utils.ReadJSON(w, r, &requestPayload)
 	if err != nil {
+		log.Error("Failed to read JSON request", "error", err)
 		utils.ErrorJSON(w, err)
 		return
 	}
 
-	client, err := api.getCourseServiceClient()
+	jsonData, _ := json.Marshal(requestPayload)
+	request, err := http.NewRequest("POST", api.Endpoint+"/course", bytes.NewBuffer(jsonData))
 	if err != nil {
 		utils.ErrorJSON(w, err)
 		return
 	}
 
-	defer client.Conn.Close()
-	defer client.Cancel()
+	request.Header.Set("Content-Type", "application/json")
 
-	c, err := client.Client.CreateCourse(client.Ctx, &course.CreateCourseRequest{
-		Title:       requestPayload.Title,
-		Description: requestPayload.Description,
-		Creator:     requestPayload.Creator,
-	})
+	client := &http.Client{}
+
+	response, err := client.Do(request)
 
 	if err != nil {
 		utils.ErrorJSON(w, err)
+		return
+	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusCreated {
+		utils.ErrorJSON(w, errors.New("response status code is not: StatusCreated"))
 		return
 	}
 
 	responsePayload := utils.JsonResponse{
 		Error:   false,
-		Message: "Successfully created course",
-		Data:    c.Course,
+		Message: fmt.Sprintf("Successfully created course #%s", requestPayload.Id),
 	}
+
+	log.Debug("Terminating CreateCourse request handling")
 
 	utils.WriteJSON(w, http.StatusCreated, responsePayload)
 }
 
 func (api *CourseService) HandleGetAllCourses(w http.ResponseWriter, r *http.Request) {
-	client, err := api.getCourseServiceClient()
+	log.Debug("Handling GetAllCourses request....")
+
+	request, err := http.NewRequest("GET", api.Endpoint+"/course", nil)
 	if err != nil {
 		utils.ErrorJSON(w, err)
 		return
 	}
 
-	defer client.Conn.Close()
-	defer client.Cancel()
+	request.Header.Set("Content-Type", "application/json")
 
-	res, err := client.Client.GetAllCourses(client.Ctx, &course.GetAllCoursesRequest{})
+	client := &http.Client{}
+
+	response, err := client.Do(request)
+
+	if err != nil {
+		utils.ErrorJSON(w, err)
+		return
+	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		utils.ErrorJSON(w, errors.New("response status is not: StatusOK"))
+		return
+	}
+
+	var jsonFromService utils.JsonResponse
+	err = json.NewDecoder(response.Body).Decode(&jsonFromService)
 	if err != nil {
 		utils.ErrorJSON(w, err)
 		return
@@ -124,30 +136,44 @@ func (api *CourseService) HandleGetAllCourses(w http.ResponseWriter, r *http.Req
 	responsePayload := utils.JsonResponse{
 		Error:   false,
 		Message: "Successfully fetched all courses",
-		Data:    res.Courses,
+		Data:    jsonFromService.Data,
 	}
+
+	log.Debug("Terminating GetAllCourses request handling")
 
 	utils.WriteJSON(w, http.StatusOK, responsePayload)
 }
 
 func (api *CourseService) HandleGetCourseByTitle(w http.ResponseWriter, r *http.Request) {
-	client, err := api.getCourseServiceClient()
+	log.Debug("Handling GetCourseByTitle request....")
+
+	title := chi.URLParam(r, "title")
+	request, err := http.NewRequest("GET", api.Endpoint+"/course/"+title, nil)
+	if err != nil {
+		log.Error("Failed to create new request", "error", err)
+		utils.ErrorJSON(w, err)
+		return
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+
+	response, err := client.Do(request)
+
 	if err != nil {
 		utils.ErrorJSON(w, err)
-		fmt.Println("Failed to get gRPC client:", err)
 		return
 	}
 
-	defer client.Conn.Close()
-	defer client.Cancel()
+	defer response.Body.Close()
 
-	title := chi.URLParam(r, "title")
+	if response.StatusCode != http.StatusOK {
+		utils.ErrorJSON(w, errors.New("response status is not: StatusOK"))
+		return
+	}
 
-	// Make gRPC call with timeout
-	c, err := client.Client.GetCourse(client.Ctx, &course.GetCourseRequest{
-		Title: title,
-	})
-
+	var jsonFromService utils.JsonResponse
+	err = json.NewDecoder(response.Body).Decode(&jsonFromService)
 	if err != nil {
 		utils.ErrorJSON(w, err)
 		return
@@ -155,97 +181,98 @@ func (api *CourseService) HandleGetCourseByTitle(w http.ResponseWriter, r *http.
 
 	responsePayload := utils.JsonResponse{
 		Error:   false,
-		Message: "Successfully fetched course",
-		Data:    c.Course,
+		Message: "Successfully fetched all courses",
+		Data:    jsonFromService.Data,
 	}
+
+	log.Debug("Terminating GetCourseByTitle request handling")
 
 	utils.WriteJSON(w, http.StatusOK, responsePayload)
 }
 
 func (api *CourseService) HandleUpdateCourseByTitle(w http.ResponseWriter, r *http.Request) {
+	log.Debug("Handling UpdateCourseByTitle request....")
+
+	title := chi.URLParam(r, "title")
+
 	var requestPayload Course
 	err := utils.ReadJSON(w, r, &requestPayload)
+	if err != nil {
+		log.Error("Failed to read JSON request", "error", err)
+		utils.ErrorJSON(w, err)
+		return
+	}
+
+	jsonData, _ := json.Marshal(requestPayload)
+	request, err := http.NewRequest("PUT", api.Endpoint+"/course/"+title, bytes.NewReader(jsonData))
+	if err != nil {
+		utils.ErrorJSON(w, err)
+		return
+	}
+
+	request.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+
+	response, err := client.Do(request)
 
 	if err != nil {
 		utils.ErrorJSON(w, err)
 		return
 	}
 
-	client, err := api.getCourseServiceClient()
-	if err != nil {
-		utils.ErrorJSON(w, err)
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		utils.ErrorJSON(w, errors.New("response status code is not: StatusOK"))
 		return
 	}
 
-	defer client.Conn.Close()
-	defer client.Cancel()
-
-	convertedModules := make([]*course.Module, len(requestPayload.Modules))
-	for i, m := range requestPayload.Modules {
-		convertedTasks := make([]*course.Task, len(m.Tasks))
-		for j, t := range m.Tasks {
-			convertedTasks[j] = &course.Task{
-				Id:   t.Id,
-				Task: t.Task,
-				Type: t.Type,
-				Xp:   t.Xp,
-			}
-		}
-		convertedModules[i] = &course.Module{
-			Id:    m.Id,
-			Title: m.Title,
-			Tasks: convertedTasks,
-		}
-	}
-
-	c, err := client.Client.UpdateCourse(client.Ctx, &course.UpdateCourseRequest{
-		Title:       requestPayload.Title,
-		Description: requestPayload.Description,
-		Creator:     requestPayload.Creator,
-		Likes:       requestPayload.Likes,
-		Students:    requestPayload.Students,
-		Topics:      requestPayload.Topics,
-		Modules:     convertedModules,
-	})
-
-	if err != nil {
-		utils.ErrorJSON(w, err)
-		return
-	}
+	log.Info("Successfully updated course", "title", requestPayload.Title)
 
 	responsePayload := utils.JsonResponse{
 		Error:   false,
-		Message: "Successfully updated course",
-		Data:    c.Course,
+		Message: fmt.Sprintf("Successfully updated course titled %s", requestPayload.Title),
 	}
+
+	log.Debug("Terminating UpdateCourseByTitle request handling")
 
 	utils.WriteJSON(w, http.StatusOK, responsePayload)
 }
 
 func (api *CourseService) HandleDeleteCourseByTitle(w http.ResponseWriter, r *http.Request) {
+	log.Debug("Handling DeleteCourseByTitle request....")
+
 	title := chi.URLParam(r, "title")
+	request, err := http.NewRequest("DELETE", api.Endpoint+"/course/"+title, nil)
+	if err != nil {
+		log.Error("Failed to create new request", "error", err)
+		utils.ErrorJSON(w, err)
+		return
+	}
+	request.Header.Set("Content-Type", "application/json")
 
-	client, err := api.getCourseServiceClient()
+	client := &http.Client{}
+
+	response, err := client.Do(request)
+
 	if err != nil {
 		utils.ErrorJSON(w, err)
 		return
 	}
 
-	defer client.Conn.Close()
-	defer client.Cancel()
+	defer response.Body.Close()
 
-	_, err = client.Client.DeleteCourse(client.Ctx, &course.DeleteCourseRequest{
-		Title: title,
-	})
-
-	if err != nil {
-		utils.ErrorJSON(w, err)
+	if response.StatusCode != http.StatusOK {
+		utils.ErrorJSON(w, errors.New("response status is not: StatusOK"))
 		return
 	}
+
+	log.Debug("Terminating DeleteCourseByTitle request handling")
 
 	responsePayload := utils.JsonResponse{
 		Error:   false,
-		Message: "Successfully deleted course",
+		Message: fmt.Sprintf("Successfully deleted course titled %s", title),
 	}
 
 	utils.WriteJSON(w, http.StatusOK, responsePayload)
