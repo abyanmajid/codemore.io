@@ -1,14 +1,14 @@
-# codemore.io v0.1.0 (ARCHIVED)
+# codemore.io (ARCHIVED)
 
-This monorepo contains version 0.1.0 of **codemore.io**, which was my first attempt at building a cloud-native microservices architecture that in theory is scalable and maintainable. This monorepo is **DISCONTINUED DUE TO ABUNDANT INCOMPLIANCES WITH IMPORTANT DEVOPS PRINCIPLES AND BEST PRACTICES**. Moving forward, I will attempt to build **codemore.io** for the second time, taking into account the lessons I have learned from building this monorepo. 
+This project was my first attempt at building a cloud-native microservices architecture that in theory is scalable and maintainable. This project is **DISCONTINUED DUE TO ABUNDANT INCOMPLIANCES WITH IMPORTANT DEVOPS PRINCIPLES AND BEST PRACTICES**. Moving forward, I will attempt to build **codemore.io** for the second time, taking into account the lessons I have learned from building this monorepo. 
 
 <p align="center">The repositories for the successor of <b>codemore.io</b> can be found at <b><a href="https://github.com/YanSystems">@YanSystems</a></b></p>
 
 <!-- <h3 align="center"> Live App 🚀 | Demo 📹 | Documentation 🔍 | Source 📦 </h3> -->
 
-## The old version 0.1.0 architecture
+## The old architecture
 
-In codemore.io v0.1.0, All client requests are sent to the `broker` service (which serves as an API gateway) with a JSON payload. The `broker` service will then redirect this request via `gRPC` to the correct microservice. The following `mermaid` visualizer depicts the architecture:
+In codemore.io, all client requests are sent to the `broker` service (which serves as an API gateway) with a JSON payload. The `broker` service will then redirect this request via `gRPC` to the correct microservice. The following `mermaid` visualizer depicts the architecture:
 
 ```mermaid
 graph TD
