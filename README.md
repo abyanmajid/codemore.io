@@ -2,7 +2,7 @@
 
 This monorepo contains version 0.1.0 of **codemore.io**, which was my first attempt at building a cloud-native microservices architecture that in theory is scalable and maintainable. This monorepo is **DISCONTINUED DUE TO ABUNDANT INCOMPLIANCES WITH IMPORTANT DEVOPS PRINCIPLES AND BEST PRACTICES**. Moving forward, I will attempt to build **codemore.io** for the second time, taking into account the lessons I have learned from building this monorepo. 
 
-<p align="center">The repositories for <b>codemore.io v0.2.0</b> can be found at <b><a href="https://github.com/YanSystems">@YanSystems</a></b></p>
+<p align="center">The repositories for the successor of <b>codemore.io</b> can be found at <b><a href="https://github.com/YanSystems">@YanSystems</a></b></p>
 
 <!-- <h3 align="center"> Live App 🚀 | Demo 📹 | Documentation 🔍 | Source 📦 </h3> -->
 
