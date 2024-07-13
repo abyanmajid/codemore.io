@@ -35,6 +35,44 @@ At a lower level, when we assign a value to a variable, say `x = 5`, Python allo
 
 ## Primitive Data Types
 
+Primitive data types are the basic building blocks of data in programming, typically predefined by the language and provide the simplest forms of data representation. In python, there are 4 built-in primitive data types which are (1) integer, (2) float, (3) boolean, and (4) string.
+
+### Integer
+
+Integers are whole numbers. They can be positive, negative, or zero.
+
+```py
+a = 10
+b = -3
+c = 0
+```
+
+Under the hood, integers are stored in memory as a sequence of bytes. The actual representation depends on the underlying computer architecture (e.g., 64 bit, 32 bit, 8 bit, etc...)
+
+#### Encoding and Storing Integers (Extension)
+
+An integer can be represented in binary. To do this, you repeatedly divide the number by 2, recording the remainder at each step until the quotient is zero. The remainders, read in reverse order, form the binary equivalent of the decimal number. As an example, let us encode the number 13 in binary,
+
+$$13\div 2 = 6 + 1$$
+$$6\div 2 = 3 + 0$$
+$$3\div 2 = 1 + 1$$
+$$1\div 2 = 0 + 1$$
+
+Reading the remainders from bottom to top, we can conclude 13 in decimal is 1101 in binary. As a general rule, the ranges for encoding integers in an $n$-bit architecture are as follows:
+
+- Unsigned integers go from $0$ to $2^n - 1$
+- Signed integers go from $-2^{n-1}$ to $2^{n-1}-1$
+
+So if we have an 8-bit architecture (where each memory cell can store 8 bits of information), the number 300 will occupy two memory cells because one cell can only store unsigned integers up to $2^8 - 1 = 255$.
+
+### Float
+
+Floats are numbers with a f
+
+### Boolean
+
+### String
+
 ## Type Casting
 
 ## Static vs. Dynamic Typing
